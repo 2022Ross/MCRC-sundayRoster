@@ -6,7 +6,7 @@ from typing import Optional
 
 from twilio.rest import Client
 
-TEMPLATE_FRIENDLY_NAME = "sunday_roster_shift_reminder_v1"
+TEMPLATE_FRIENDLY_NAME = "mcrc_roster_invite_v1"
 _template_sid: Optional[str] = None
 
 
@@ -41,7 +41,7 @@ def _get_or_create_template() -> str:
         ContentList.QuickReplyAction({"title": "Reject ✗", "id": "reject"}),
     ]
     quick_reply = ContentList.TwilioQuickReply({
-        "body": "Hi {{1}}! You're rostered as *{{2}}* this *{{3}}*. Can you make it?",
+        "body": "Hi {{1}}, this is MCRC. You're rostered as *{{2}}* this *{{3}}*. Can you make it?",
         "actions": actions,
     })
     types = ContentList.Types({"twilio/quick-reply": quick_reply})
@@ -69,6 +69,6 @@ def send_shift_invite(to: str, name: str, role: str, date_str: str) -> None:
         # Fallback to plain text if interactive message fails
         send_message(
             to,
-            f"Hi {name}! You're rostered as *{role}* this *{date_str}*. "
+            f"Hi {name}, this is MCRC. You're rostered as *{role}* this *{date_str}*. "
             f"Can you make it?\n\nReply *ACCEPT* or *REJECT*.",
         )
