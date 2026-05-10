@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+twilio
+python-dotenv
+python-dateutil
+python-multipart
+psycopg2-binary
