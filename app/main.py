@@ -46,8 +46,8 @@ async def webhook(
                 mp = manager_phone if manager_phone.startswith("whatsapp:") else f"whatsapp:{manager_phone}"
                 try:
                     send_message(mp, manager_msg)
-                except Exception:
-                    pass
+                except Exception as e:
+                    reply += f"\n[Manager alert failed: {e}]"
         twiml.message(reply)
         return Response(content=str(twiml), media_type="application/xml")
 
