@@ -2,40 +2,30 @@
 
 WhatsApp bot for managing MCRC Sunday service rosters via Twilio.
 
+## Deployment (Railway — live 24/7)
+- **Web URL:** `https://web-production-e05434.up.railway.app`
+- **Webhook:** `https://web-production-e05434.up.railway.app/webhook` (set in Twilio Console)
+- **GitHub:** `https://github.com/2022Ross/MCRC-sundayRoster.git`
+- Railway auto-deploys on every `git push` to master — no manual step needed
+- Local server and Serveo tunnel are no longer needed
+
 ## Stack
-- Python 3.8, FastAPI, SQLAlchemy, SQLite (`roster.db`)
+- Python 3.12, FastAPI, SQLAlchemy, PostgreSQL (Railway)
 - Twilio WhatsApp sandbox (`+14155238886`)
-- Serveo for tunneling (not ngrok)
 
-## How to start
-
-**Terminal 1 — server:**
-```bash
-source .venv/bin/activate
-uvicorn app.main:app --reload --port 8000
-```
-
-**Terminal 2 — Serveo tunnel:**
-```bash
-ssh -R 80:localhost:8000 serveo.net
-```
-The URL changes on every reconnect. Update the Twilio webhook each time:
-- console.twilio.com → Messaging → Try it out → Send a WhatsApp message → Sandbox Settings
-- Set webhook to `https://<new-serveo-url>/webhook`
-
-## Environment variables (`.env`)
+## Environment variables (set in Railway dashboard)
 - `TWILIO_ACCOUNT_SID` — Twilio account SID
 - `TWILIO_AUTH_TOKEN` — Twilio auth token
 - `TWILIO_WHATSAPP_FROM` — `whatsapp:+14155238886` (sandbox number)
-- `MANAGER_PHONE` — receives RSVP notifications (`+61435534424` — Ross's number)
-- `DATABASE_URL` — defaults to `sqlite:///./roster.db`
+- `MANAGER_PHONE` — `+61435534424` (Ross — receives RSVP notifications)
+- `DATABASE_URL` — set automatically by Railway PostgreSQL plugin
 
 ## Key files
 - `app/main.py` — FastAPI app, webhook endpoint
 - `app/commands.py` — all command handlers and RSVP logic
 - `app/whatsapp.py` — Twilio messaging (plain + interactive invite)
 - `app/models.py` — Member and Shift SQLAlchemy models
-- `app/database.py` — DB setup
+- `app/database.py` — DB setup (handles PostgreSQL URL conversion for Railway)
 
 ## Commands the bot supports
 - `ADD MEMBER <name> <phone>` / `REMOVE MEMBER <name>` / `MEMBERS`
@@ -45,43 +35,35 @@ The URL changes on every reconnect. Update the Twilio webhook each time:
 - `HELP`
 
 ## Phone number format
-- Stored in DB as `whatsapp:+XXXXXXXXXXXX` (e.g. `whatsapp:+61401346015`)
+- Stored in DB as `whatsapp:+XXXXXXXXXXXX` (e.g. `whatsapp:+61460446241`)
 - When adding members, the bot automatically prefixes with `whatsapp:+`
 - Strip `whatsapp:` when displaying to users
 
 ## RSVP flow
-1. `NOTIFY <date>` sends each rostered member an interactive WhatsApp message with Accept ✓ / Reject ✗ buttons (via Twilio Content API template `sunday_roster_shift_reminder_v1`)
-2. If the interactive template fails, falls back to plain text asking them to reply ACCEPT or REJECT
-3. Member taps button or texts ACCEPT/REJECT → webhook receives it → shift status updates → MANAGER_PHONE is notified
-4. Shift statuses: `None` → `pending` → `accepted` / `rejected`
+1. `NOTIFY <date>` sends each rostered member an interactive WhatsApp message with Accept ✓ / Reject ✗ buttons (via Twilio Content API template `mcrc_roster_invite_v1`)
+2. Template body: "Hi {{name}}, this is MCRC. You're rostered as *{{role}}* this *{{date}}*. Can you make it?"
+3. If the interactive template fails, falls back to plain text asking them to reply ACCEPT or REJECT
+4. Member taps button or texts ACCEPT/REJECT → webhook receives it → shift status updates → MANAGER_PHONE is notified
+5. Shift statuses: `None` → `pending` → `accepted` / `rejected`
 
 ## Twilio Content API template
-- Friendly name: `sunday_roster_shift_reminder_v1`
+- Friendly name: `mcrc_roster_invite_v1`
 - Auto-created on first NOTIFY if it doesn't exist
-- Template SID is cached in memory only — lost on server restart (harmless, just re-fetches on next use)
+- Template SID is cached in memory only — lost on server restart (harmless, re-fetches on next use)
 
-## Known gotchas
-- **Serveo URL changes every reconnect** — always update Twilio webhook after restarting Serveo
-- **Sandbox opt-in** — members must text the Twilio join code to `+14155238886` before they can receive messages
-- **Interactive buttons may not work on sandbox** — plain text fallback (ACCEPT/REJECT) always works
-- **`.env.example` is missing `MANAGER_PHONE`** — needs to be added
+## Sandbox opt-in (IMPORTANT)
+Every person who needs to receive or send messages must first text the join code to `+14155238886` on WhatsApp.
+- Find the join code: console.twilio.com → Messaging → Try it out → Send a WhatsApp message
+- Yves ✓ | Ross (manager) ✓
+- Any new member must opt in before NOTIFY will reach them
 
-## Current members (as of 2026-05-11)
+## Current members
 | Name | Phone |
 |------|-------|
-| Houlder | +61401346015 |
+| Yves | +61460446241 |
+| Blessing | +61401346015 |
 
-## Sending messages directly via script
-```python
-import os
-os.chdir("/Users/ross/Documents/VS/sunday-roster")
-from dotenv import load_dotenv
-load_dotenv("/Users/ross/Documents/VS/sunday-roster/.env")
-from app.whatsapp import send_message, send_shift_invite
-
-# Plain message
-send_message("whatsapp:+61401346015", "Your message here")
-
-# Interactive invite with Accept/Reject buttons
-send_shift_invite("whatsapp:+61401346015", "Houlder", "Host at PFPC", "Sunday, 11 May 2026")
-```
+## Known gotchas
+- **Sandbox opt-in** — all recipients must join the sandbox or they won't receive messages
+- **Interactive buttons may not work on sandbox** — plain text fallback (ACCEPT/REJECT) always works
+- **PostgreSQL URL** — Railway provides `postgres://` but SQLAlchemy needs `postgresql+psycopg2://` — handled in `database.py`
